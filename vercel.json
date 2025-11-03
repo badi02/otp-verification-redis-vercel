@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/*.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/send-otp",
+      "dest": "/api/send-otp.js"
+    },
+    {
+      "src": "/verify-otp",
+      "dest": "/api/verify-otp.js"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}

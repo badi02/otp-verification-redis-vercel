@@ -1,0 +1,28 @@
+# Node
+node_modules/
+npm-debug.log
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+.next/
+.vercel/
+
+# Env files (VERY IMPORTANT)
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Log files
+logs
+*.log
+*.out
+*.err
+
+# Mac / Linux / IDE
+.DS_Store
+*.swp
+.vscode/
+.idea/
