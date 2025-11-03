@@ -1,4 +1,3 @@
-// api/send-otp.js
 import nodemailer from "nodemailer";
 import { Redis } from "@upstash/redis";
 
@@ -13,14 +12,22 @@ const SEND_LIMIT_PER_HOUR = 5;
 const SEND_LIMIT_KEY_PREFIX = "sendcount:";
 const OTP_KEY_PREFIX = "otp:";
 const VERIFIED_KEY_PREFIX = "verified:";
+const LOCK_KEY_PREFIX = "lock:";
+
+function setCors(res) {
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,PATCH,DELETE,POST,PUT");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version"
+  );
+}
 
 export default async function handler(req, res) {
   // Add CORS headers
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
-
+  setCors(res);
+  
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -40,10 +47,25 @@ export default async function handler(req, res) {
 
     // If already verified for this device, short-circuit
     const verifiedKey = `${VERIFIED_KEY_PREFIX}${deviceId}`;
-    const already = await redis.get(verifiedKey);
+    const verifiedRaw = await redis.get(verifiedKey);
+    if (verifiedRaw) {
+      // verifiedRaw may be JSON or plain value; try parse
+      let verifiedData;
+      try {
+        verifiedData = typeof verifiedRaw === "string" ? JSON.parse(verifiedRaw) : verifiedRaw;
+      } catch (e) {
+        verifiedData = verifiedRaw;
+      }
+
+      // If the stored record indicates the same deviceId as key, return verified
+      // (we keyed verified by hashed deviceId, so this is already device-scoped)
+      return res.status(200).json({ message: "Device already verified", verified: true });
+    }
+
+    /* const already = await redis.get(verifiedKey);
     if (already) {
       return res.status(200).json({ message: "Device already verified" });
-    }
+    } */
 
     // Rate limit sends per device (hourly)
     const sendCountKey = `${SEND_LIMIT_KEY_PREFIX}${deviceId}`;
@@ -66,10 +88,16 @@ export default async function handler(req, res) {
     // Send email only if email credentials are configured
     if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
       const transporter = nodemailer.createTransport({
-        service: "gmail",
+        host: "smtp.office365.com",
+        port: 587,
+        secure: false, // STARTTLS
+        //service: "gmail",
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASS, // app password
+        },
+        tls: {
+          ciphers: "SSLv3",
         },
       });
 
@@ -77,12 +105,15 @@ export default async function handler(req, res) {
         from: process.env.EMAIL_USER,
         to: process.env.EMAIL_USER,
         subject: `New OTP for device ${deviceId}`,
-        text: `Your OTP is: ${otp}\n\nThis code will expire in 5 minutes.`,
+        text: `<p>Your OTP is: <b>${otp}</b>\n\nThis code will expire in 5 minutes.</p>`,
       };
 
       await transporter.sendMail(mailOptions);
     } else {
-      console.log(`OTP for ${deviceId}: ${otp}`); // For development
+      // For development
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`OTP for ${deviceId}: ${otp}`);
+      }
     }
 
     return res.status(200).json({ message: "OTP sent" });
