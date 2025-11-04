@@ -1,11 +1,22 @@
 {
   "version": 2,
-  "functions": {
-    "api/*.js": {
-      "runtime": "vercel-node@2.15.11"
+  "builds": [
+    {
+      "src": "api/*.js",
+      "use": "@vercel/node"
     }
-  },
+  ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" }
-  ]
+    {
+      "src": "/send-otp",
+      "dest": "/api/send-otp.js"
+    },
+    {
+      "src": "/verify-otp",
+      "dest": "/api/verify-otp.js"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
 }
