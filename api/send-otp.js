@@ -88,16 +88,10 @@ export default async function handler(req, res) {
     // Send email only if email credentials are configured
     if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
       const transporter = nodemailer.createTransport({
-        host: "smtp.office365.com",
-        port: 587,
-        secure: false, // STARTTLS
-        //service: "gmail",
+        service: "gmail",
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASS, // app password
-        },
-        tls: {
-          ciphers: "SSLv3",
         },
       });
 
